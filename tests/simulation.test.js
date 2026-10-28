@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {Simulation} from '../src/simulation.js';
+import {DT,vessel} from '../src/config.js';
+import {effect,mix,wav} from '../src/audio.js';
+const units=s=>s.characters.reduce((n,b)=>n+2**(b.plugin.level-1),0);
+test('complete default run: legal merges, final near ending, stable enclosure',()=>{const s=new Simulation();let before=0;while(s.time<54){s.step();assert.equal(units(s),[1,1,2,4,8,16,1,1,2,4,8,16].slice(0,s.drop).reduce((a,b)=>a+b,0));for(const b of s.characters){assert(Number.isFinite(b.position.x));if(b.position.y>700)for(const v of b.vertices)assert(Math.hypot(v.x-vessel.x,v.y-vessel.y)<vessel.r+20,`wall escape at ${s.time}: ${Math.hypot(v.x-vessel.x,v.y-vessel.y)}`);}before=s.events.length;}assert.equal(before,11);assert(s.finalAt>46&&s.finalAt<51);assert.equal(s.characters.length,1);assert.equal(s.characters[0].plugin.level,7);assert.equal(units(s),64);});
+test('seed and fixed steps reproduce event log regardless of render timing',()=>{const a=new Simulation(),b=new Simulation();a.advance(54);for(let t=1;t<=54;t++)b.advance(t);assert.deepEqual(a.events,b.events);});
+test('three simultaneous contacts consume each parent only once',()=>{const s=new Simulation();s.drop=12;const a=s.spawn(1,500,900),b=s.spawn(1,540,900),c=s.spawn(1,580,900);s.pending.push([a,b],[b,c],[a,c]);s.step();assert.equal(s.events.length,1);assert.equal(units(s),3);});
+test('different levels and final levels do not merge',()=>{const s=new Simulation();s.drop=12;s.spawn(6,500,900);s.spawn(7,550,900);s.step();assert.equal(s.events.length,0);const t=new Simulation();t.drop=12;t.spawn(7,500,900);t.spawn(7,550,900);t.step();assert.equal(t.events.length,0);});
+test('several seeds produce final form with default recipe',()=>{for(const seed of [1,123,999]){const s=new Simulation({seed});s.advance(54);assert(s.finalAt>46&&s.finalAt<51);}});
+test('audio starts at the merge, remains bounded and has real PCM data',()=>{const samples=mix([{time:1,level:7}],3);assert(samples.slice(0,48000).every(v=>v===0));assert(samples.slice(48000).some(v=>Math.abs(v)>.01));assert(samples.every(v=>Math.abs(v)<1));const data=wav(samples);assert.equal(Buffer.from(data.subarray(0,4)).toString(),'RIFF');assert.equal(data.length,44+3*48000*2);assert(effect(7).length>effect(2).length);});

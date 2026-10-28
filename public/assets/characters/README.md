@@ -1,0 +1,1 @@
+Importa la lámina original desde la interfaz o coloca 1.png … 7.png aquí. PNG RGBA, cuerpo completo y sin números. No se incluyen sustitutos generados. Los archivos importados permanecen locales e ignorados por Git.
